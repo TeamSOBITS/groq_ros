@@ -1,0 +1,10 @@
+/**:
+  ros__parameters:
+    groq:
+      temperature: 0.5
+      json_mode: false
+      max_tokens: 4096
+      top_p: 1.0
+      seed: -1                           
+      presence_penalty: 0.6                           
+      frequency_penalty: 0.3                            

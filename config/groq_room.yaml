@@ -1,0 +1,18 @@
+# 事前に会話を定義しておくことができるyamlファイル
+sobit_mini:                                             # sobit_miniという部屋では．．．
+  - {user : "私の名前はSOBIT MINIといい、この画像のようなAIロボットです", files: ["sobit_mini.png"]} # ファイルは相対パスで書けます
+  - {model: "よろしくね!!SOBIT MINIさん!あなたは目が大きくて人間のように2本の腕を持つ可愛らしい見た目をしているね!!"}
+
+
+sound_quiz:               # sound_quizという別の部屋も準備
+  - {user : "音当てクーイズ！何の音でしょうか！", files: ["train_sound.wav"]}
+  - {model: "I love it! SOBITS sounds like a unique and fun team name."}
+  - {user : "SOBITS consists of about 30 people."}
+  - {model: "A team of 30 people! That's impressive!"}
+
+
+team_introduce:               # team_introduceという別の部屋も準備している
+  - {user : "私達のチームはSOBITSという学生チームを組んでいます！"}  # imageを入れない場合＝LLM
+  - {model: "SOBITSという学生チームを組んでいるのですね！素晴らしいですね！どういったチームなのですか？"}
+  - {user : "学部生・修士・博士と幅広く在籍し，40人います！"}
+  - {model: "40人ものメンバーがいる大規模な学生チームなのですね！\n幅広い層の方が在籍されているとのこと、多様な視点や知識が集まって素晴らしいチームになりそうですね。"}
