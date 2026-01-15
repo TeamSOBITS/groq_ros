@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'groq_action_server = groq_ros.groq_action_server:main',
+            'groq_model_list = groq_ros.model_list:main',
         ],
     },
 )
