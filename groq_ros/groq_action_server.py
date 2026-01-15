@@ -1,5 +1,4 @@
 import os
-import datetime
 import cv2
 import yaml
 import base64
@@ -28,9 +27,9 @@ class GroqActionServer(Node):
                 
         self.declare_parameter('rooms_file', '')
         self.declare_parameter('api_key', '')
-        self.declare_parameter('groq.temperature', 0.5)
+        self.declare_parameter('groq.temperature', 1.0)
         self.declare_parameter('groq.json_mode', False)
-        self.declare_parameter('groq.max_tokens', 4096) 
+        self.declare_parameter('groq.max_completion_tokens', 4096) 
         self.declare_parameter('groq.top_p', 1.0)
         self.declare_parameter('groq.seed', -1)
         self.declare_parameter('groq.presence_penalty', 0.0)
@@ -47,7 +46,7 @@ class GroqActionServer(Node):
         self.groq_params = {
             'temperature': self.get_parameter('groq.temperature').value,
             'json_mode': self.get_parameter('groq.json_mode').value,
-            'max_tokens': self.get_parameter('groq.max_tokens').value,
+            'max_completion_tokens': self.get_parameter('groq.max_completion_tokens').value,
             'top_p': self.get_parameter('groq.top_p').value,
             'seed': self.get_parameter('groq.seed').value,
             'presence_penalty': self.get_parameter('groq.presence_penalty').value,
@@ -96,7 +95,8 @@ class GroqActionServer(Node):
         self.get_logger().info(f'Executing goal: {goal_handle.request.request}')
 
         response = ChatLlmRecognition.Result()
-        room = goal_handle.request.room_name
+        room = goal_handle.request.room_name if goal_handle.request.room_name else 'default'
+        
         if room not in self.chat_messages:
             self.chat_messages[room] = []
 
@@ -127,13 +127,17 @@ class GroqActionServer(Node):
                 "model": goal_handle.request.model_name,
                 "messages": self.chat_messages[room],
                 "temperature": self.groq_params['temperature'],
-                "max_tokens": self.groq_params['max_tokens'],
+                "max_completion_tokens": self.groq_params['max_completion_tokens'],
                 "top_p": self.groq_params['top_p'],
+                "presence_penalty": self.groq_params['presence_penalty'],
+                "frequency_penalty": self.groq_params['frequency_penalty'],
                 "stream": True
             }
 
             if self.groq_params['json_mode']:
                 request_params["response_format"] = {"type": "json_object"}
+            if self.groq_params['seed'] >= 0:
+                request_params["seed"] = self.groq_params['seed']
 
             raw_res = self.groq_client.chat.completions.with_raw_response.create(**request_params)
             remaining_day = raw_res.headers.get('x-ratelimit-remaining-day') or raw_res.headers.get('x-ratelimit-remaining-requests')
@@ -144,6 +148,8 @@ class GroqActionServer(Node):
             for chunk in completion:
                 if goal_handle.is_cancel_requested:
                     self.get_logger().info('Goal cancel requested. Stopping stream.')
+                    if self.chat_messages[room]:
+                        self.chat_messages[room].pop()
                     goal_handle.canceled()
                     return response
                 
@@ -159,13 +165,16 @@ class GroqActionServer(Node):
             if goal_handle.request.is_stack:
                 self.chat_messages[room].append({'role': 'assistant', 'content': response.result})
             else:
-                self.chat_messages[room].pop()
+                if self.chat_messages[room]:
+                    self.chat_messages[room].pop()
 
             goal_handle.succeed()
             self.get_logger().info('Goal succeeded.')
             return response
 
         except Exception as e:
+            if room in self.chat_messages and self.chat_messages[room]:
+                self.chat_messages[room].pop()
             self.get_logger().error(f'Groq API Error: {str(e)}')
             goal_handle.abort()
             return response
@@ -177,17 +186,29 @@ class GroqActionServer(Node):
             self.chat_messages[str(room_name)] = []
             for talk in history:
                 content_list = []
-                role = "user" if "user" in talk else "assistant"
-                text = talk["user"] if "user" in talk else talk["model"]
+                if "system" in talk:
+                    role = "system"
+                    text = talk["system"]
+                elif "user" in talk:
+                    role = "user"
+                    text = talk["user"]
+                elif "model" in talk:
+                    role = "assistant"
+                    text = talk["model"]
+                else:
+                    continue 
                 content_list.append({"type": "text", "text": text})
-                if "files" in talk:
+
+                if "files" in talk and role != "system":
                     for f in talk["files"]:
                         path = f if f.startswith("/") else os.path.join(self.config_path, f)
                         if os.path.exists(path):
-                            mime = "image/jpeg" if path.lower().endswith(('.jpg', '.jpeg')) else "image/png"
                             with open(path, "rb") as img_file:
                                 b64 = base64.b64encode(img_file.read()).decode('utf-8')
-                                content_list.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
+                                content_list.append({
+                                    "type": "image_url", 
+                                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                                })
                 self.chat_messages[str(room_name)].append({"role": role, "content": content_list})
 
 def main(args=None):

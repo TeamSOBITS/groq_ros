@@ -103,16 +103,28 @@ $ source ~/colcon_ws/install/setup.sh
 2. [groq_config.yaml](./config/groq_config.yaml)上でモデルの設定を用途に応じて更新してください．
     ```yaml
     groq:
-      temperature: 0.5  # 回答のランダム性（創造性）を制御．値が低いほど確実性の高い単語を選び（論理的・決定的），高いほど意外性のある単語を選ぶ
+      temperature: 1.0  # 回答のランダム性（創造性）を制御．値が低いほど確実性の高い単語を選び（論理的・決定的），高いほど意外性のある単語を選ぶ，範囲：0.0 ~ 2.0
       json_mode: false  # 出力フォーマットを強制的にJSON形式にするかどうか
       max_tokens: 4096  # 1回の生成でAIが出力できるトークンの最大値
-      top_p: 1.0  # 単語を選ぶ際，累積確率が p に達する上位の候補からのみ選択．1.0 はすべての候補を対象にします．0.1 にすると，上位10%の確率を持つ「非常に無難な単語」しか選ばれなくなる
+      top_p: 1.0  # 単語を選ぶ際，累積確率が p に達する上位の候補からのみ選択．1.0 はすべての候補を対象にします．0.1 にすると，上位10%の確率を持つ「非常に無難な単語」しか選ばれなくなる，範囲: 0.0 ~ 1.0
       seed: -1  # 生成の再現性を確保するための乱数シード値．-1 はシードを指定せず，毎回ランダムに生成       
-      presence_penalty: 0.6 # 値を大きくすると新しいトピックを出力しやすくなる                 
-      frequency_penalty: 0.3  # 値を大きくすると同じ言葉の繰り返しが抑制        
+      presence_penalty: 0.0 # 値を大きくすると新しいトピックを出力しやすくなる，範囲：-2.0 ~ 2.0               .
+      frequency_penalty: 0.0  # 値を大きくすると同じ言葉の繰り返しが抑制，範囲：-2.0 ~ 2.0
     ```
 
 3. [任意] [groq_room.yaml](./config/groq_room.yaml)上で，文脈エンジニアリングのためのルームを記述してください．
+    ```yaml
+    example_room: # 部屋名
+      # system: AIのキャラクターや制約（役割、口調、ルール）を定義
+      - {system: "あなたは案内ロボットの'SOBIT'です。丁寧な日本語で答えてください。"}
+
+      # user: 人間（ユーザー）からの問いかけ（filesで画像添付が可能）
+      - {user: "こんにちは！あなたは何ができますか？", files: ["sobit_mini.png"]}
+
+      # model: AIの回答（会話の流れを維持するために使用）
+      - {model: "こんにちは！私はSOBITです。施設の案内や画像認識が可能です。"}
+    ```
+
     ```yaml
     # 例：自チームに関する紹介のチャットボット
     team_introduce:               # team_introduceという別の部屋も準備している
@@ -140,14 +152,21 @@ $ source ~/colcon_ws/install/setup.sh
 | **Goal**          | `room_name`           | string                 | 会話履歴を管理するための任意のルームの名前          |
 |                   | `request`             | string                 | ユーザーからのテキストメッセージ                    |
 |                   | `image`               | sensor_msgs/Image[]    | 送信する画像メッセージのリスト                      |
-|                   | `sound_file_path`     | string[]               | 送信する音声ファイルのパスのリスト                  |
+|                   | `sound_file_path`     | string[]               | 送信するファイルのパスのリスト                  |
 |                   | `model_name`          | string                 | 使用するGroqモデルの名前 (例: "openai/gpt-oss-120b") |
 |                   | `is_stack`            | bool                   | 現在の会話を会話履歴にスタックするかどうか          |
 | **Result**        | `result`              | string                 | Groqからの応答テキスト                            |
 
 ---
-使用可能なモデル一覧は[groq_ros/model_list.py](groq_ros/model_list.py)を実行して確認してください．
 
+- 使用可能なモデル一覧は以下のコマンドで確認できます．
+
+```sh
+ros2 run groq_ros groq_model_list
+```
+
+> [!NOTE]
+> Groq ROSは現在，音声入力（Speech-to-Text）および音声出力（Text-to-Speech）機能は実装されていません．今後の対応を検討中です．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 

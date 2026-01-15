@@ -26,7 +26,7 @@
     </li>
     <li><a href="#launch-and-usage">Launch and Usage</a></li>
     <li><a href="#sending-requests-to-the-server">Sending Requests to the Server</a></li>
-    <li><a href="#milestone">milestone</a></li>
+    <li><a href="#milestone">Milestone</a></li>
     <li><a href="#references">References</a></li>
   </ol>
 </details>
@@ -97,33 +97,44 @@ $ source ~/colcon_ws/install/setup.sh
     ```
 
 > [!NOTE]
-> To obtain a Gemini API key, please refer to the following site:
+> To obtain a Groq API key, please refer to the following site:
 > https://console.groq.com/keys
 
 2. Update the model settings in [groq_config.yaml](./config/groq_config.yaml) according to your needs.
     ```yaml
     groq:
-      temperature: 0.5  # Controls the randomness (creativity) of responses. Lower values make the output more deterministic/logical, while higher values lead to more diverse and creative word choices.
-      json_mode: false  # Whether to force the output format into JSON.
-      max_tokens: 4096  # The maximum number of tokens the AI can generate in a single response.
-      top_p: 1.0  # Nucleus sampling: the model considers the results of the tokens with top_p probability mass. 1.0 includes all possibilities, while 0.1 means only the most likely 10% are considered.
-      seed: -1  # Random seed for reproducibility. Use -1 for a random seed each time (no fixed reproducibility).
-      presence_penalty: 0.6 # Higher values encourage the model to talk about new topics.
-      frequency_penalty: 0.3  # Higher values discourage the model from repeating the same words/phrases.   
+          temperature: 1.0  # Controls randomness (creativity). Lower values result in more deterministic/logical output, while higher values lead to more creative/varied responses. Range: 0.0 - 2.0.
+          json_mode: false  # Whether to force the model to output in JSON format.
+          max_tokens: 4096  # The maximum number of tokens the AI can generate in a single response.
+          top_p: 1.0        # Nucleus sampling: The model considers only the tokens with top_p probability mass. 1.0 includes all tokens, while 0.1 considers only the top 10% most likely tokens. Range: 0.0 - 1.0.
+          seed: -1          # Random seed for reproducibility. Set to -1 for random generation (no fixed seed).
+          presence_penalty: 0.0 # Higher values encourage the model to talk about new topics. Range: -2.0 - 2.0.
+          frequency_penalty: 0.0 # Higher values discourage the model from repeating the same words/phrases. Range: -2.0 - 2.0.
     ```
 
 3. [Optional] Configure a room for context engineering in [groq_room.yaml](./config/groq_room.yaml).
-
     ```yaml
-    # Example: Chatbot introducing our team
-    team_introduce:               # Preparing a separate room called team_introduce
-      - {user : "Our team is a student team called SOBITS!"}  # If no image is included = LLM
-      - {model: "So you formed a student team called SOBITS! That's wonderful! What kind of team is it?"}
-      - {user : "We have 40 members, ranging from undergraduates to masters and PhDs!"}
-      - {model: "A large student team with 40 members! With such a wide range of members, it sounds like a wonderful team with diverse perspectives and knowledge gathered together."}
+      example_room: # Room name
+        # system: Define the AI's personality and constraints (role, tone, rules)
+        - {system: "You are the guidance robot 'SOBIT'. Please respond in polite Japanese."}
+
+        # user: Human (user) input (images can be attached using 'files')
+        - {user: "Hello! What can you do?", files: ["sobit_mini.png"]}
+
+        # model: AI responses (used to maintain conversation flow)
+        - {model: "Hello! I am SOBIT. I can provide facility guidance and image recognition."}
     ```
 
-4. Launch the Gemini ROS action server.
+    ```yaml
+      # Example: Chatbot introducing our team
+      team_introduce:               # Preparing a separate room called team_introduce
+        - {user : "Our team is a student team called SOBITS!"}  # If no image is included = LLM
+        - {model: "So you formed a student team called SOBITS! That's wonderful! What kind of team is it?"}
+        - {user : "We have 40 members, ranging from undergraduates to masters and PhDs!"}
+        - {model: "A large student team with 40 members! With such a wide range of members, it sounds like a wonderful team with diverse perspectives and knowledge gathered together."}
+    ```
+
+4. Launch the Groq ROS action server.
     ```sh
     ros2 launch groq_ros groq_server.launch.py
     ```
@@ -132,29 +143,36 @@ $ source ~/colcon_ws/install/setup.sh
 
 
 ### Sending Requests to the Server
-Send a request to the Gemini server using the action `sobits_interfaces/action/ChatLlmRecognition`.
+Send a request to the Groq server using the action `sobits_interfaces/action/ChatLlmRecognition`.
 
 | Item              | Field Name            | Type                   | Description                                         |
 | :---------------- | :-------------------- | :--------------------- | :-------------------------------------------------- |
-| **Action Name**   |                       |                        | `gemini_action`                                     |
+| **Action Name**   |                       |                        | `groq_action`                                     |
 | **Goal**          | `room_name`           | string                 | Arbitrary room name for managing conversation history |
 |                   | `request`             | string                 | Text message from the user                          |
 |                   | `image`               | sensor_msgs/Image[]    | List of image messages to send                      |
-|                   | `sound_file_path`     | string[]               | List of paths to audio files to send                |
-|                   | `model_name`          | string                 | Name of the Gemini model to use (e.g., "gemini-2.0-flash") |
+|                   | `sound_file_path`     | string[]               | List of paths to files to send                |
+|                   | `model_name`          | string                 | Name of the Groq model to use (e.g., "openai/gpt-oss-120b") |
 |                   | `is_stack`            | bool                   | Whether to stack the current conversation in the conversation history |
-| **Result**        | `result`              | string                 | Response text from Gemini                           | |
+| **Result**        | `result`              | string                 | Response text from Groq                           | 
 
 ---
-To check the list of available models, please run　[groq_ros/model_list.py](groq_ros/model_list.py).
+- You can check the list of available models using the following command:
 
+```sh
+ros2 run groq_ros groq_model_list
+
+```
+
+> [!NOTE]
+> Currently, **groq_ros** does not support audio input (Speech-to-Text) or audio output (Text-to-Speech). These features are under consideration for future updates.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- マイルストーン -->
 ## Milestone
 
-See the [open isuues](issues-url) for a full list of proposed features (and known issues).
+See the [open issues]([issues-url]) for a full list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
