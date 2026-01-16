@@ -25,6 +25,12 @@ def generate_launch_description():
         description="Prompt data format file path",
     )
 
+    function_list_arg = DeclareLaunchArgument(
+        "function_list",
+        default_value=os.path.join(get_package_share_directory('groq_ros'), 'config', 'groq_function_list.yaml'),
+        description="Tool definition file path",
+    )
+    
     config_file_path = os.path.join(
         get_package_share_directory('groq_ros'), "config", "groq_config.yaml"
     )
@@ -39,6 +45,7 @@ def generate_launch_description():
             {
                 "api_key": LaunchConfiguration("api_key"),
                 "rooms_file": LaunchConfiguration("rooms_file"),
+                "function_list_file": LaunchConfiguration("function_list"),
             },
             config_file_path
         ],
@@ -49,6 +56,7 @@ def generate_launch_description():
             robot_name_arg,
             api_key_arg,
             rooms_file_arg,
+            function_list_arg,
             groq_action_server_node,
         ]
     )

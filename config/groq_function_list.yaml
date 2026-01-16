@@ -1,0 +1,33 @@
+tools:
+  - type: "function"
+    function:
+      name: "navigation"
+      description: "Move the robot to a specified room or location."
+      parameters:
+        type: "object"
+        properties:
+          location:
+            type: "string"
+            description: "The name of the destination (e.g., kitchen, living room)."
+        required: ["location"]
+
+  - type: "function"
+    function:
+      name: "object_detect"
+      description: "Detect and list all objects currently visible in the robot's camera view. Returns a list of object names."
+      parameters:
+        type: "object"
+        properties: {}
+        required: []
+
+  - type: "function"
+    function:
+      name: "grasp"
+      description: "Attempt to grasp a specific object using the robot's arm. The object must have been detected first."
+      parameters:
+        type: "object"
+        properties:
+          target_object:
+            type: "string"
+            description: "The name of the object to grasp (e.g., apple, cup)."
+        required: ["target_object"]

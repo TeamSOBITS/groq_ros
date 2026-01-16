@@ -26,6 +26,8 @@
     </li>
     <li><a href="#launch-and-usage">Launch and Usage</a></li>
     <li><a href="#sending-requests-to-the-server">Sending Requests to the Server</a></li>
+    <li><a href="#available-models">Available Models</a></li>
+    <li><a href="#function-calling">Function Calling</a></li>
     <li><a href="#milestone">Milestone</a></li>
     <li><a href="#references">References</a></li>
   </ol>
@@ -105,23 +107,27 @@ $ source ~/colcon_ws/install/setup.sh
     groq:
           temperature: 1.0  # Controls randomness (creativity). Lower values result in more deterministic/logical output, while higher values lead to more creative/varied responses. Range: 0.0 - 2.0.
           json_mode: false  # Whether to force the model to output in JSON format.
-          max_tokens: 4096  # The maximum number of tokens the AI can generate in a single response.
+          max_completion_tokens: 4096  # The maximum number of tokens the LLM can generate in a single response.
           top_p: 1.0        # Nucleus sampling: The model considers only the tokens with top_p probability mass. 1.0 includes all tokens, while 0.1 considers only the top 10% most likely tokens. Range: 0.0 - 1.0.
           seed: -1          # Random seed for reproducibility. Set to -1 for random generation (no fixed seed).
           presence_penalty: 0.0 # Higher values encourage the model to talk about new topics. Range: -2.0 - 2.0.
           frequency_penalty: 0.0 # Higher values discourage the model from repeating the same words/phrases. Range: -2.0 - 2.0.
+          tool_choice: "auto" # Configuration for Tool Use mode.
+                    # "required": Forces the LLM to always call at least one function (tool).
+                    # "auto": The LLM automatically decides whether to call a function or respond with text based on context.
+                    # "none": Disables function calling and performs standard chat only.
     ```
 
 3. [Optional] Configure a room for context engineering in [groq_room.yaml](./config/groq_room.yaml).
     ```yaml
       example_room: # Room name
-        # system: Define the AI's personality and constraints (role, tone, rules)
+        # system: Define the LLM's personality and constraints (role, tone, rules)
         - {system: "You are the guidance robot 'SOBIT'. Please respond in polite Japanese."}
 
         # user: Human (user) input (images can be attached using 'files')
         - {user: "Hello! What can you do?", files: ["sobit_mini.png"]}
 
-        # model: AI responses (used to maintain conversation flow)
+        # model: LLM responses (used to maintain conversation flow)
         - {model: "Hello! I am SOBIT. I can provide facility guidance and image recognition."}
     ```
 
@@ -156,16 +162,74 @@ Send a request to the Groq server using the action `sobits_interfaces/action/Cha
 |                   | `is_stack`            | bool                   | Whether to stack the current conversation in the conversation history |
 | **Result**        | `result`              | string                 | Response text from Groq                           | 
 
----
-- You can check the list of available models using the following command:
+> [!NOTE]
+> Currently, **groq_ros** does not support audio input (Speech-to-Text) or audio output (Text-to-Speech). These features are under consideration for future updates.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+## Available Models
+You can check the list of available models using the following command:
 
 ```sh
 ros2 run groq_ros groq_model_list
-
 ```
 
-> [!NOTE]
-> Currently, **groq_ros** does not support audio input (Speech-to-Text) or audio output (Text-to-Speech). These features are under consideration for future updates.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+## Function Calling
+
+This feature allows the LLM to analyze user instructions and call predefined functions based on the situation. The LLM outputs the function name and required arguments in a structured JSON format.
+
+1. Define the functions you want to use in [groq_function_list.yaml](./config/groq_function_list.yaml).
+* Ensure the `description` is clear and concise.
+* Describing what each parameter expects helps the model provide the correct arguments.
+
+
+  ```yaml
+  tools: # List of tools available to the LLM
+    - type: "function" # Type of tool (currently fixed as "function")
+      function:
+        name: "navigation" # Function name: Unique identifier used in the program
+        description: "Moves the robot to a specified room or location." # Instruction for the LLM: When to use this function
+        parameters: # Definition of arguments to pass to the function
+          type: "object" # Data structure of the arguments (usually "object")
+          properties: # Specific argument details
+            location: # Argument name
+              type: "string" # Argument type (string)
+              description: "The name of the destination (e.g., kitchen, living room)." # Description for the LLM on what to provide
+          required: ["location"] # List of arguments mandatory for execution
+
+    - type: "function"
+      function:
+        name: "object_detect"
+        description: "Detects all objects currently visible in the robot's camera view and returns a list of them."
+        parameters:
+          type: "object"
+          properties: {} # Specify an empty object if no arguments are needed
+          required: [] # No mandatory items
+
+  ```
+
+
+2. Change the `tool_choice` parameter in [groq_config.yaml](./config/groq_config.yaml) to one of the following:
+* `required`: Forces the LLM to always call at least one function.
+* `auto`: The LLM automatically decides whether to call a function or respond with text based on the context.
+
+
+3. Launch the Groq ROS action server.
+    ```sh
+    ros2 launch groq_ros groq_server.launch.py
+
+    ```
+
+4. Send a request from the client.
+  - Example: If a tool is called, a JSON string in the following format will be returned as the result. Parse this string on the client side to execute robot actions.
+    ```text
+    TOOL_CALL:[{"name": "navigation", "args": {"location": "kitchen"}}]
+
+    ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
