@@ -15,6 +15,7 @@ import ament_index_python
 from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image
+from rcl_interfaces.msg import SetParametersResult
 from sobits_interfaces.action import ChatLlmRecognition
 
 class GroqActionServer(Node):
@@ -22,7 +23,6 @@ class GroqActionServer(Node):
         super().__init__('groq_action_server')
         
         self.callback_group = ReentrantCallbackGroup()
-        
         self.declare_parameter('rooms_file', '')
         self.declare_parameter('function_list_file', '')      
         self.declare_parameter('api_key', '')
@@ -56,6 +56,14 @@ class GroqActionServer(Node):
             self.get_logger().error('API Key is missing!')
             raise RuntimeError('API Key is missing')
 
+        self.groq_client = Groq(api_key=self.api_key)
+        if not self.is_network_available():
+            self.get_logger().fatal('\n' + '='*50 + 
+                                    '\n[NETWORK ERROR] api.groq.com is unreachable or access denied.' + 
+                                    '\nPlease check your internet connection or Wi-Fi settings.' + 
+                                    '\n' + '='*50)
+            raise RuntimeError('Network connection failed')
+
         try:
             with open(self.room_file, "r") as file:
                 self.rooms = yaml.safe_load(file)
@@ -76,8 +84,8 @@ class GroqActionServer(Node):
                     self.get_logger().error(f'Tools file not found: {self.function_list_file}')
             except Exception as e:
                 self.get_logger().error(f'Failed to load tools file: {e}')
-
-        self.groq_client = Groq(api_key=self.api_key)
+        
+        self.add_on_set_parameters_callback(self.parameter_callback)
         self.chat_messages = {}
         self.build_prompt() 
         self.bridge = CvBridge() 
@@ -91,6 +99,49 @@ class GroqActionServer(Node):
         )
         self.get_logger().info("\033[93mGroq Server (Enhanced Protocol) is READY.\033[0m")
 
+    def is_network_available(self):
+        try:
+            self.groq_client.models.list()
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Network Check Failed: {e}")
+            return False
+        
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name.startswith('groq.'):
+                key = param.name.replace('groq.', '')
+                if key in self.groq_params:
+                    self.groq_params[key] = param.value
+                    self.get_logger().info(f"Updated {param.name} to {param.value}")
+
+            elif param.name == 'api_key':
+                self.api_key = param.value
+                self.groq_client = Groq(api_key=self.api_key)
+                self.get_logger().info("Groq API Key updated.")
+            
+            elif param.name == 'rooms_file':
+                self.room_file = param.value
+                try:
+                    with open(self.room_file, "r") as file:
+                        self.rooms = yaml.safe_load(file)
+                    self.build_prompt()
+                    self.get_logger().info(f"Rooms file reloaded from {self.room_file}")
+                except Exception as e:
+                    self.get_logger().error(f"Failed to reload rooms file: {e}")
+
+            elif param.name == 'function_list_file':
+                self.function_list_file = param.value
+                try:
+                    if os.path.exists(self.function_list_file):
+                        with open(self.function_list_file, "r") as file:
+                            data = yaml.safe_load(file)
+                            self.tools_definition = data.get('tools')
+                            self.get_logger().info(f"Tools reloaded from {self.function_list_file}")
+                except Exception as e:
+                    self.get_logger().error(f"Failed to reload tools file: {e}")
+        return SetParametersResult(successful=True)
+
     def goal_callback(self, goal_request):
         self.get_logger().info('Received goal request')
         return GoalResponse.ACCEPT
@@ -100,7 +151,6 @@ class GroqActionServer(Node):
         return CancelResponse.ACCEPT
 
     def _format_tool_call_for_api(self, tool_call_string, room_name):
-        """TOOL_CALL: 形式の文字列を API 正規の dict 形式に変換する内部メソッド"""
         try:
             tool_data = json.loads(tool_call_string.replace("TOOL_CALL:", ""))
             tool_calls = []
@@ -135,8 +185,17 @@ class GroqActionServer(Node):
                     b64 = base64.b64encode(f.read()).decode('utf-8')
                 current_content.append({"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}})
         
-        for img_msg in goal_handle.request.image:
+        for i, img_msg in enumerate(goal_handle.request.image):
             img_cv = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding='bgr8')
+            timestamp = self.get_clock().now().to_msg().sec
+            save_name = f"captured_{timestamp}_{i}.png"
+            save_path = os.path.join(self.config_path, save_name)
+            try:
+                cv2.imwrite(save_path, img_cv)
+                self.get_logger().info(f"Image saved to: {save_path}")
+            except Exception as e:
+                self.get_logger().error(f"Failed to save image: {e}")
+
             _, buffer = cv2.imencode('.jpg', img_cv)
             b64 = base64.b64encode(buffer).decode('utf-8')
             current_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
@@ -202,6 +261,7 @@ class GroqActionServer(Node):
 
             ending_time = self.get_clock().now()
             response.elapsed_time = (ending_time - starting_time).nanoseconds / 1e9
+            self.get_logger().info(f"\033[92mFinal Result: {response.result}\033[0m")
             goal_handle.succeed()
             return response
 
@@ -244,15 +304,18 @@ class GroqActionServer(Node):
 def main(args=None):
     rclpy.init(args=args)
     executor = MultiThreadedExecutor()
-    node = GroqActionServer()
     try:
+        node = GroqActionServer()
         executor.add_node(node)
         executor.spin()
+    except RuntimeError:
+        pass
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass
     finally:
         if rclpy.ok():
-            node.destroy_node()
+            if 'node' in locals():
+                node.destroy_node()
             rclpy.shutdown()
 
 if __name__ == '__main__':
