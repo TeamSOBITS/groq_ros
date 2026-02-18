@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[JA](README.md) | [EN](README_en.md)
+[JA](README.md) | [EN](README.en.md)
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -117,6 +117,11 @@ $ source ~/colcon_ws/install/setup.sh
                     # "auto": LLMが文脈に応じて，関数を呼ぶかテキストで答えるかを自動判断します．
                     # "none": 関数呼び出しを無効化し，通常のチャットのみを行います．
     ```
+    - 各パラメータは[groq_server.launch.py](launch/groq_server.launch.py)起動後でも変更できます．
+      - 例： `tool_choice`を`auto`に変更する場合
+        ```sh
+        ros2 param set /groq_action_server groq.tool_choice auto
+        ```
 
 3. [任意] [groq_room.yaml](./config/groq_room.yaml)上で，文脈エンジニアリングのためのルームを記述してください．
     ```yaml

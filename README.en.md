@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[JA](README.md) | [EN](README_en.md)
+[JA](README.md) | [EN](README.en.md)
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -117,6 +117,11 @@ $ source ~/colcon_ws/install/setup.sh
                     # "auto": The LLM automatically decides whether to call a function or respond with text based on context.
                     # "none": Disables function calling and performs standard chat only.
     ```
+    * Parameters can also be modified after launching [groq_server.launch.py](launch/groq_server.launch.py).
+      * Example: Changing `tool_choice` to `auto`:
+        ```sh
+        ros2 param set /groq_action_server groq.tool_choice auto
+        ```
 
 3. [Optional] Configure a room for context engineering in [groq_room.yaml](./config/groq_room.yaml).
     ```yaml
