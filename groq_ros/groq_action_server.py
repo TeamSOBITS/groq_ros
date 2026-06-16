@@ -23,7 +23,7 @@ class GroqActionServer(Node):
         super().__init__('groq_action_server')
         
         self.callback_group = ReentrantCallbackGroup()
-        self.declare_parameter('rooms_file', '')
+        self.declare_parameter('prompt_file', '')
         self.declare_parameter('function_list_file', '')      
         self.declare_parameter('api_key', '')
         self.declare_parameter('groq.temperature', 1.0)
@@ -35,7 +35,7 @@ class GroqActionServer(Node):
         self.declare_parameter('groq.frequency_penalty', 0.0)
         self.declare_parameter('groq.tool_choice', 'required') 
 
-        self.room_file = self.get_parameter('rooms_file').value
+        self.prompt_file = self.get_parameter('prompt_file').value
         self.function_list_file = self.get_parameter('function_list_file').value
         self.api_key = self.get_parameter('api_key').value
         self.pkg_path = ament_index_python.get_package_share_directory('groq_ros')
@@ -55,6 +55,7 @@ class GroqActionServer(Node):
         if not self.api_key:
             self.get_logger().error('API Key is missing!')
             raise RuntimeError('API Key is missing')
+        self.get_logger().info(f'Prompt file: {self.prompt_file}')
 
         self.groq_client = Groq(api_key=self.api_key)
         if not self.is_network_available():
@@ -65,10 +66,10 @@ class GroqActionServer(Node):
             raise RuntimeError('Network connection failed')
 
         try:
-            with open(self.room_file, "r") as file:
+            with open(self.prompt_file, "r") as file:
                 self.rooms = yaml.safe_load(file)
         except Exception as e:
-            self.get_logger().warn(f'Failed to load room file: {e}')
+            self.get_logger().warn(f'Failed to load prompt file: {e}')
             self.rooms = {}
 
         self.tools_definition = None
@@ -120,15 +121,15 @@ class GroqActionServer(Node):
                 self.groq_client = Groq(api_key=self.api_key)
                 self.get_logger().info("Groq API Key updated.")
             
-            elif param.name == 'rooms_file':
-                self.room_file = param.value
+            elif param.name == 'prompt_file':
+                self.prompt_file = param.value
                 try:
-                    with open(self.room_file, "r") as file:
+                    with open(self.prompt_file, "r") as file:
                         self.rooms = yaml.safe_load(file)
                     self.build_prompt()
-                    self.get_logger().info(f"Rooms file reloaded from {self.room_file}")
+                    self.get_logger().info(f"Prompt file reloaded from {self.prompt_file}")
                 except Exception as e:
-                    self.get_logger().error(f"Failed to reload rooms file: {e}")
+                    self.get_logger().error(f"Failed to reload prompt file: {e}")
 
             elif param.name == 'function_list_file':
                 self.function_list_file = param.value
